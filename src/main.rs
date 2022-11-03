@@ -67,8 +67,6 @@ impl PartialEq for Process {
 
 fn main() {
     let mut input = String::new();
-    let mut num_processes: u32 = 0;
-    let mut process_binary_heap: BinaryHeap<Process> = BinaryHeap::new();
     
     println!("Enther the number of process nodes you wish to generate:");
 
@@ -86,26 +84,59 @@ fn main() {
 
 
 
+    let sharedcounter = Arc::new(Mutex::new(0));
+    let sharedheap: Arc<Mutex<BinaryHeap<Process>>> = Arc::new(Mutex::new(BinaryHeap::new()));
 
+    
+    let counter_reference_producer = Arc::clone(&sharedcounter);
+    let heap_reference_producer = Arc::clone(&sharedheap);
 
-    let thread_handle1 = thread::spawn( || {
-        for i in 1..=10 {
-            println!("Thread 1: i = {}", i);
-            thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(3..=25)));
-            //thread::sleep(Duration::from_millis(100));
+    let thread_producer = thread::spawn( move || {
+        for _i in 1..=input {
+            { /* BEGIN CRITICAL REGION */
+                let mut num = counter_reference_producer.lock().unwrap();
+                let mut process_binary_heap = heap_reference_producer.lock().unwrap();
+                
+                *num += 1;
+                println!("thread 1 creating process {}", *num);
+                let p1 = Process::new(*num);
+                process_binary_heap.push(p1);
+
+            } /* END CRITICAL REGION */
+            
+            thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(50..=100)));
         }
     });
 
-    thread_handle1.join().unwrap();
+    thread::sleep(Duration::from_millis(200));
 
-    println!("Creating and adding {} process nodes to the Queue and the Binary MinHeap.", input);
-    //Generate process nodes and push them onto the queue
-    for _i in 1..=input {
-        num_processes += 1;
-        let p1 = Process::new(num_processes);
-        process_binary_heap.push(p1);
-    }
-    println!("Successfully added {} process nodes added to the Queue.", process_binary_heap.len());
+    
+    let counter_reference_consumer_1 = Arc::clone(&sharedcounter);
+    let heap_reference_consumer_1 = Arc::clone(&sharedheap);
+
+    let thread_consumer_1 = thread::spawn( move || {
+        while true { //keep looping until it's empty
+            let mut sleep_time: u8;
+            {
+                let mut process_binary_heap = heap_reference_consumer_1.lock().unwrap();
+                let p = process_binary_heap.pop().unwrap();
+                println!("Consumer1: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
+                sleep_time = p.sleep_time;
+                if(process_binary_heap.is_empty()) {
+                    break; //only pop one process at a time
+                }
+            }
+            thread::sleep(Duration::from_millis(sleep_time as u64));
+        }
+        //thread::sleep(Duration::from_millis(700));
+    });
+
+
+
+    thread_producer.join().unwrap();
+    thread_consumer_1.join().unwrap();
+    let mut process_binary_heap = sharedheap.lock().unwrap();
+    let num_processes = sharedcounter.lock().unwrap();
 
 
 
@@ -118,9 +149,11 @@ fn main() {
 
 
 
+    
 
     println!("Draining the Binary MinHeap, one process at a time:");
-    for _i in 0..=(num_processes-1) {
+    //for _i in 0..=(*num_processes-1) {
+    while !process_binary_heap.is_empty() {
         let p = process_binary_heap.pop().unwrap();
         println!(" | Id: {:>5} |  priority: {:>6} |  sleep time: {:>6} |  description: {}", p.id, p.priority, p.sleep_time, p.description);
     }
