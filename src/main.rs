@@ -1,19 +1,17 @@
 /**********************************
 Patrick Burns
-2022-10-08
-CS 490 Programming Assignment 1
+2022-11-03
+CS 490 Programming Assignment 2
 
-Purpose: Create Process Node structs based on
-the number the user specifies, and store them
-in a queue to print them out in order of creation,
-and store them in binary heap to print out in
-order of priority 
+Purpose: Simulate the creation and execution
+of processes in RUST using concurrent threads
+for creating and then executing the processes.
 
 Written using VSCode on Windows
 **********************************/
 
 /* Use declarations */
-use std::{collections::{VecDeque, BinaryHeap}, cmp::Ordering, io};
+use std::{collections::BinaryHeap, cmp::Ordering, io, thread, time::Duration, sync::{Arc, Mutex}};
 use rand::Rng;
 
 /* Structs and their associated Methods */
@@ -70,7 +68,6 @@ impl PartialEq for Process {
 fn main() {
     let mut input = String::new();
     let mut num_processes: u32 = 0;
-    let mut process_queue: VecDeque<Process> = VecDeque::new();
     let mut process_binary_heap: BinaryHeap<Process> = BinaryHeap::new();
     
     println!("Enther the number of process nodes you wish to generate:");
@@ -84,28 +81,43 @@ fn main() {
         Err(_) => {println!("Invalid input."); return;}
     };
     
+
+
+
+
+
+
+
+    let thread_handle1 = thread::spawn( || {
+        for i in 1..=10 {
+            println!("Thread 1: i = {}", i);
+            thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(3..=25)));
+            //thread::sleep(Duration::from_millis(100));
+        }
+    });
+
+    thread_handle1.join().unwrap();
+
     println!("Creating and adding {} process nodes to the Queue and the Binary MinHeap.", input);
     //Generate process nodes and push them onto the queue
     for _i in 1..=input {
         num_processes += 1;
         let p1 = Process::new(num_processes);
-        process_queue.push_back(p1);
+        process_binary_heap.push(p1);
     }
-    println!("Successfully added {} process nodes added to the Queue.", process_queue.len());
+    println!("Successfully added {} process nodes added to the Queue.", process_binary_heap.len());
 
-    //Copy the process nodes from the queue and place the copies into the binary heap
-    for i in &process_queue {
-        process_binary_heap.push(i.clone());
-    }
-    println!("Successfully added {} process nodes added to the Binary MinHeap.", process_binary_heap.len());
 
-    print!("\n");
-    println!("Draining the Queue, one process at a time:");
-    for _i in 0..=(num_processes-1) {
-        let p = process_queue.pop_front().unwrap();
-        println!(" | Id: {:>5} |  priority: {:>6} |  sleep time: {:>6} |  description: {}", p.id, p.priority, p.sleep_time, p.description);
-    }
-    print!("\n");
+
+
+
+
+
+
+
+
+
+
 
     println!("Draining the Binary MinHeap, one process at a time:");
     for _i in 0..=(num_processes-1) {
