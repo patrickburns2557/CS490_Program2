@@ -108,6 +108,7 @@ fn main() {
         println!("\n......Producer is starting it's work......\n");
         let mut num_processes = 0;
         for _i in 1..=num_phases {
+            println!("\n......Producer creating processes......\n");
             for _j in 1..=num_per_phase {
                 num_processes += 1;
                 { /* BEGIN CRITICAL REGION */
@@ -123,7 +124,7 @@ fn main() {
             
             
         }
-        println!("......Producer has finished: {} process nodes were created......", num_processes);
+        println!("\n......Producer has finished: {} process nodes were created......\n", num_processes);
     });
     /* END PRODUCER THREAD DEFINITION */
 
@@ -148,7 +149,7 @@ fn main() {
                 }
 
                 let p = process_binary_heap.pop().unwrap();
-                println!("Consumer1: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
+                println!("      Consumer1: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
                 sleep_time = p.sleep_time;
             }
             thread::sleep(Duration::from_millis(sleep_time));
@@ -175,7 +176,7 @@ fn main() {
                 }
 
                 let p = process_binary_heap.pop().unwrap();
-                println!("  Consumer2: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
+                println!("        Consumer2: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
                 sleep_time = p.sleep_time;
             }
             thread::sleep(Duration::from_millis(sleep_time));
