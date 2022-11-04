@@ -173,9 +173,9 @@ fn main() {
                 if process_binary_heap.is_empty() { //exit thread if heap is currently empty
                     break;
                 }
-                
+
                 let p = process_binary_heap.pop().unwrap();
-                println!("Consumer2: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
+                println!("  Consumer2: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
                 sleep_time = p.sleep_time;
             }
             thread::sleep(Duration::from_millis(sleep_time));
