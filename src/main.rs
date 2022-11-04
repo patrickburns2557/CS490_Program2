@@ -95,6 +95,8 @@ fn main() {
         Err(_) => {println!("Invalid input."); return;}
     };
 
+    println!("\nStarting Simulation.\n\n");
+
 
 
     //Create variables to be used between threads
