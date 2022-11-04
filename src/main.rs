@@ -21,8 +21,8 @@ use rand::Rng;
 struct Process {
     priority: u8,
     id: u32,
-    sleep_time: u8,
-    description: String
+    sleep_time: u64,
+    _description: String
 }
 impl Process {
     //associated function to return a new Process instance
@@ -34,8 +34,8 @@ impl Process {
         Self {
             id,
             priority: rand::thread_rng().gen_range(1..=100),
-            sleep_time: rand::thread_rng().gen_range(100..=200),
-            description: desc
+            sleep_time: rand::thread_rng().gen_range(100..=2000),
+            _description: desc
         }
     }
 }
@@ -68,94 +68,131 @@ impl PartialEq for Process {
 fn main() {
     let mut input = String::new();
     
-    println!("Enther the number of process nodes you wish to generate:");
-
-    //Read in input from user
+    /* Read in input from user */
+    println!("Enter the number of creation phases for the producer:");
     io::stdin().read_line(&mut input).expect("Failed to read input.");
-    print!("\n");
     //parse integer out of the input. If input is invalid, program lets user know and exits
-    let input: u32 = match input.trim().parse() {
+    let num_phases: u32 = match input.trim().parse() {
         Ok(num) => num,
         Err(_) => {println!("Invalid input."); return;}
     };
-    
+
+    input = String::new();
+    println!("Enter sleep time in ms for the producer to pause between creation phases:");
+    io::stdin().read_line(&mut input).expect("Failed to read input.");
+    //parse integer out of the input. If input is invalid, program lets user know and exits
+    let producer_sleep_time: u32 = match input.trim().parse() {
+        Ok(num) => num,
+        Err(_) => {println!("Invalid input."); return;}
+    };
+
+    input = String::new();
+    println!("Enter the number of processes to create each phase:");
+    io::stdin().read_line(&mut input).expect("Failed to read input.");
+    //parse integer out of the input. If input is invalid, program lets user know and exits
+    let num_per_phase: u32 = match input.trim().parse() {
+        Ok(num) => num,
+        Err(_) => {println!("Invalid input."); return;}
+    };
 
 
 
-
-
-    let sharedcounter = Arc::new(Mutex::new(0));
+    //Create variables to be used between threads
     let sharedheap: Arc<Mutex<BinaryHeap<Process>>> = Arc::new(Mutex::new(BinaryHeap::new()));
 
-    
-    let counter_reference_producer = Arc::clone(&sharedcounter);
+    /* BEGIN PRODUCER THREAD DEFINITION */
+    //create reference to shared heap for the producer
     let heap_reference_producer = Arc::clone(&sharedheap);
 
     let thread_producer = thread::spawn( move || {
-        for _i in 1..=input {
-            { /* BEGIN CRITICAL REGION */
-                let mut num = counter_reference_producer.lock().unwrap();
-                let mut process_binary_heap = heap_reference_producer.lock().unwrap();
-                
-                *num += 1;
-                println!("thread 1 creating process {}", *num);
-                let p1 = Process::new(*num);
-                process_binary_heap.push(p1);
+        println!("\n......Producer is starting it's work......\n");
+        let mut num_processes = 0;
+        for _i in 1..=num_phases {
+            for _j in 1..=num_per_phase {
+                num_processes += 1;
+                { /* BEGIN CRITICAL REGION */
+                    let mut process_binary_heap = heap_reference_producer.lock().unwrap();
 
-            } /* END CRITICAL REGION */
+                    let p1 = Process::new(num_processes);
+                    process_binary_heap.push(p1);
+                } /* END CRITICAL REGION */
+                thread::sleep(Duration::from_millis(5));
+            }
+            println!("\n......Producer is sleeping......\n");
+            thread::sleep(Duration::from_millis(producer_sleep_time as u64));
             
-            thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(50..=100)));
+            
         }
+        println!("......Producer has finished: {} process nodes were created......", num_processes);
     });
+    /* END PRODUCER THREAD DEFINITION */
 
+
+
+    //wait a short time after producer is made before consumers start
     thread::sleep(Duration::from_millis(200));
 
-    
-    let counter_reference_consumer_1 = Arc::clone(&sharedcounter);
+
+    /* BEGIN CONSUMER THREAD 1 DEFINITION */
+    //create reference to shared heap for consumer 2
     let heap_reference_consumer_1 = Arc::clone(&sharedheap);
 
     let thread_consumer_1 = thread::spawn( move || {
-        while true { //keep looping until it's empty
-            let mut sleep_time: u8;
+        let mut num_executed1 = 0;
+        loop { //keep looping until it's empty
+            let sleep_time: u64; //create a local variable to store the sleep time so it can be used after the mutex lock is released
             {
                 let mut process_binary_heap = heap_reference_consumer_1.lock().unwrap();
+                if process_binary_heap.is_empty() { //exit thread if heap is currently empty
+                    break;
+                }
+
                 let p = process_binary_heap.pop().unwrap();
                 println!("Consumer1: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
                 sleep_time = p.sleep_time;
-                if(process_binary_heap.is_empty()) {
-                    break; //only pop one process at a time
-                }
             }
-            thread::sleep(Duration::from_millis(sleep_time as u64));
+            thread::sleep(Duration::from_millis(sleep_time));
+            num_executed1 += 1;
         }
-        //thread::sleep(Duration::from_millis(700));
+        println!("\n...Consumer1 has completed and executed {} processes...", num_executed1);
     });
+    /* END CONSUMER THREAD 1 DEFINITION */
 
 
 
+    /* BEGIN CONSUMER THREAD 2 DEFINITION */
+    //create reference to shared heap for consumer 2
+    let heap_reference_consumer_2 = Arc::clone(&sharedheap);
+
+    let thread_consumer_2 = thread::spawn( move || {
+        let mut num_executed2 = 0;
+        loop { //keep looping until it's empty
+            let sleep_time: u64; //create a local variable to store the sleep time so it can be used after the mutex lock is released
+            {
+                let mut process_binary_heap = heap_reference_consumer_2.lock().unwrap();
+                if process_binary_heap.is_empty() { //exit thread if heap is currently empty
+                    break;
+                }
+                
+                let p = process_binary_heap.pop().unwrap();
+                println!("Consumer2: executing process {}, priority: {}, for {} ms", p.id, p.priority, p.sleep_time);
+                sleep_time = p.sleep_time;
+            }
+            thread::sleep(Duration::from_millis(sleep_time));
+            num_executed2 += 1;
+        }
+        println!("\n...Consumer2 has completed and executed {} processes...", num_executed2);
+    });
+    /* END CONSUMER THREAD 2 DEFINITION */
+
+
+
+    //wait for all 3 threads to finish
     thread_producer.join().unwrap();
     thread_consumer_1.join().unwrap();
-    let mut process_binary_heap = sharedheap.lock().unwrap();
-    let num_processes = sharedcounter.lock().unwrap();
+    thread_consumer_2.join().unwrap();
 
-
-
-
-
-
-
-
-
-
-
-
-    
-
-    println!("Draining the Binary MinHeap, one process at a time:");
-    //for _i in 0..=(*num_processes-1) {
-    while !process_binary_heap.is_empty() {
-        let p = process_binary_heap.pop().unwrap();
-        println!(" | Id: {:>5} |  priority: {:>6} |  sleep time: {:>6} |  description: {}", p.id, p.priority, p.sleep_time, p.description);
-    }
+    println!("\nBoth consumers have completed.\n");
+   
     
 }
